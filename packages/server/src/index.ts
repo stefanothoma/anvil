@@ -1,18 +1,28 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { runMigrations } from "./db/migrate.js";
+import { db } from "./db/client.js";
+import { projectRoutes } from "./routes/projects.js";
+import { documentRoutes } from "./routes/documents.js";
+import { phaseRoutes } from "./routes/phases.js";
 
-// Run migrations before starting the server
 runMigrations();
 
-const server = Fastify({
-  logger: true,
-});
+const server = Fastify({ logger: true });
 
 await server.register(cors, {
   origin: "http://localhost:5173",
 });
 
+// Decorate server with db instance so routes can access it
+server.decorate("db", db);
+
+// Routes
+await server.register(projectRoutes, { prefix: "/api/projects" });
+await server.register(documentRoutes, { prefix: "/api/documents" });
+await server.register(phaseRoutes, { prefix: "/api/phases" });
+
+// Health check
 server.get("/api/health", async () => {
   return { status: "ok", timestamp: new Date().toISOString() };
 });
