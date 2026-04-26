@@ -6,10 +6,16 @@ import {
   getProject,
   listProjects,
   updateProject,
+  upsertDocument,
   type NewProject,
   type NewPhase,
 } from "../db/repositories.js";
 import { db } from "../db/client.js";
+import {
+  generateSessionInstructions,
+  generateMasterDoc,
+  generateContextFiles,
+} from "../documents/generators.js";
 
 interface PhaseInput {
   name: string;
@@ -74,6 +80,31 @@ export async function projectRoutes(server: FastifyInstance): Promise<void> {
             createdAt: now,
             updatedAt: now,
           } satisfies NewPhase);
+        });
+      }
+
+      // Generate initial documents
+      const sessionInstructions = generateSessionInstructions(project);
+      const masterDoc = generateMasterDoc(project);
+      const contextFiles = generateContextFiles(project);
+      const docNow = new Date();
+
+      for (const [type, content] of [
+        ["session_instructions", sessionInstructions],
+        ["master_doc", masterDoc],
+        ["context_file_claude", contextFiles.claudeMd],
+        ["context_file_agents", contextFiles.agentsMd],
+        ["context_file_cursor", contextFiles.cursorRules],
+        ["context_file_copilot", contextFiles.copilotInstructions],
+      ] as const) {
+        upsertDocument(db, {
+          id: randomUUID(),
+          projectId,
+          type,
+          content,
+          version: 1,
+          createdAt: docNow,
+          updatedAt: docNow,
         });
       }
 
