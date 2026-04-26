@@ -1,15 +1,18 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import { runMigrations } from "./db/migrate.js";
+
+// Run migrations before starting the server
+runMigrations();
 
 const server = Fastify({
   logger: true,
 });
 
 await server.register(cors, {
-  origin: "http://localhost:5173", // Vite dev server
+  origin: "http://localhost:5173",
 });
 
-// Health check
 server.get("/api/health", async () => {
   return { status: "ok", timestamp: new Date().toISOString() };
 });
