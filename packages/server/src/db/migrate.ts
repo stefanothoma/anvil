@@ -82,6 +82,10 @@ export function runMigrations(): void {
     );
   `);
 
+  // Phase 2 additions — idempotent column additions
+  try { sqlite.exec(`ALTER TABLE projects ADD COLUMN repo_path TEXT NOT NULL DEFAULT ''`); } catch {}
+  try { sqlite.exec(`ALTER TABLE projects ADD COLUMN deployment_target TEXT NOT NULL DEFAULT 'not_decided'`); } catch {}
+
   sqlite.close();
   console.info("Database migrations complete.");
 }

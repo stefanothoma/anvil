@@ -11,6 +11,8 @@ export const projects = sqliteTable("projects", {
   stack: text("stack").notNull().default(""),
   stage: integer("stage").notNull().default(1),
   repoUrl: text("repo_url").notNull().default(""),
+  repoPath: text("repo_path").notNull().default(""),           // local filesystem path for git features
+  deploymentTarget: text("deployment_target").notNull().default("not_decided"), // 'vercel' | 'railway' | 'flyio' | 'aws' | 'docker' | 'other' | 'not_decided'
   testCommand: text("test_command").notNull().default("npm test"),
   architecture: text("architecture").notNull().default(""),
   currentState: text("current_state").notNull().default(""),

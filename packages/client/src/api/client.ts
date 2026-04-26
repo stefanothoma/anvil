@@ -31,6 +31,8 @@ export interface Project {
   stack: string;
   stage: number;
   repoUrl: string;
+  repoPath: string;
+  deploymentTarget: string;
   testCommand: string;
   architecture: string;
   currentState: string;
@@ -73,7 +75,11 @@ export const projects = {
   get: (id: string): Promise<Project> =>
     request<Project>(`/projects/${id}`),
 
-  create: (data: Omit<Project, "id" | "createdAt" | "updatedAt">): Promise<Project> =>
+  create: (
+    data: Omit<Project, "id" | "createdAt" | "updatedAt"> & {
+      phases?: { name: string; goal: string; objectives: string; gateCriteria: string }[];
+    }
+  ): Promise<Project> =>
     request<Project>("/projects", {
       method: "POST",
       body: JSON.stringify(data),

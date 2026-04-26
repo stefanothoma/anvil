@@ -2,12 +2,25 @@ import type { FastifyInstance } from "fastify";
 import { randomUUID } from "crypto";
 import {
   createProject,
+  createPhase,
   getProject,
   listProjects,
   updateProject,
   type NewProject,
+  type NewPhase,
 } from "../db/repositories.js";
 import { db } from "../db/client.js";
+
+interface PhaseInput {
+  name: string;
+  goal: string;
+  objectives: string;
+  gateCriteria: string;
+}
+
+interface CreateProjectBody extends Omit<NewProject, "id" | "createdAt" | "updatedAt"> {
+  phases?: PhaseInput[];
+}
 
 /**
  * Project CRUD routes.
@@ -28,16 +41,42 @@ export async function projectRoutes(server: FastifyInstance): Promise<void> {
   });
 
   // POST /api/projects
-  server.post<{ Body: Omit<NewProject, "id" | "createdAt" | "updatedAt"> }>(
+  server.post<{ Body: CreateProjectBody }>(
     "/",
     async (request, reply) => {
+      const { phases: phaseInputs, ...projectData } = request.body;
       const now = new Date();
+      const projectId = randomUUID();
+
       const project = createProject(db, {
-        ...request.body,
-        id: randomUUID(),
+        ...projectData,
+        id: projectId,
         createdAt: now,
         updatedAt: now,
       });
+
+      // Create phases if provided
+      if (phaseInputs && phaseInputs.length > 0) {
+        phaseInputs.forEach((p, i) => {
+          createPhase(db, {
+            id: randomUUID(),
+            projectId,
+            name: p.name,
+            goal: p.goal,
+            objectives: JSON.stringify(
+              p.objectives.split("\n").map((s) => s.trim()).filter(Boolean)
+            ),
+            gateCriteria: JSON.stringify(
+              p.gateCriteria.split("\n").map((s) => s.trim()).filter(Boolean)
+            ),
+            status: i === 0 ? "active" : "pending",
+            order: i + 1,
+            createdAt: now,
+            updatedAt: now,
+          } satisfies NewPhase);
+        });
+      }
+
       return reply.status(201).send(project);
     }
   );
