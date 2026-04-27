@@ -6,6 +6,7 @@ import {
   getActivePhase,
   listConversations,
   getDocument,
+  listMessages,
 } from "../db/repositories.js";
 
 /**
@@ -129,12 +130,9 @@ Use them as context — the developer does not need to repeat what was already d
 
 ${priorSessions
   .map((s, i) => {
-    const messages = JSON.parse(s.messages || "[]") as {
-      role: string;
-      content: string;
-    }[];
-    const summary = messages
-      .slice(-6) // last 3 turns as context window budget
+    const msgs = listMessages(db, s.id);
+    const summary = msgs
+      .slice(-6)
       .map((m) => `${m.role === "user" ? "Developer" : "Anvil"}: ${m.content.slice(0, 400)}${m.content.length > 400 ? "…" : ""}`)
       .join("\n");
     return `### Session ${i + 1}${s.title ? ` — ${s.title}` : ""}\n${summary}`;

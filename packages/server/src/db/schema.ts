@@ -74,6 +74,17 @@ export const conversations = sqliteTable("conversations", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
+// ─── Messages ────────────────────────────────────────────────────────────────
+
+export const messages = sqliteTable("messages", {
+  id: text("id").primaryKey(),
+  conversationId: text("conversation_id").notNull().references(() => conversations.id),
+  role: text("role").notNull(), // 'user' | 'assistant'
+  content: text("content").notNull(),
+  timestamp: integer("timestamp").notNull(), // unix ms
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
 // ─── Settings ────────────────────────────────────────────────────────────────
 
 export const settings = sqliteTable("settings", {

@@ -90,6 +90,50 @@ export function runMigrations(): void {
   try { sqlite.exec(`ALTER TABLE conversations ADD COLUMN session_index INTEGER NOT NULL DEFAULT 0`); } catch {}
   try { sqlite.exec(`ALTER TABLE conversations ADD COLUMN title TEXT NOT NULL DEFAULT ''`); } catch {}
 
+  // Phase 4 additions — proper messages table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL REFERENCES conversations(id),
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+  `);
+
+  // One-time migration: explode existing JSON message arrays into rows
+  const convRows = sqlite.prepare(
+    `SELECT id, messages FROM conversations WHERE messages != '[]' AND messages != ''`
+  ).all() as { id: string; messages: string }[];
+
+  const insertMsg = sqlite.prepare(
+    `INSERT OR IGNORE INTO messages (id, conversation_id, role, content, timestamp, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  );
+
+  for (const conv of convRows) {
+    try {
+      const msgs = JSON.parse(conv.messages) as {
+        role: string;
+        content: string;
+        timestamp?: number;
+      }[];
+      msgs.forEach((m, i) => {
+        insertMsg.run(
+          `${conv.id}-${i}`,
+          conv.id,
+          m.role,
+          m.content,
+          m.timestamp ?? Date.now(),
+          Date.now()
+        );
+      });
+    } catch {
+      // malformed JSON — skip
+    }
+  }
+
   sqlite.close();
   console.info("Database migrations complete.");
 }

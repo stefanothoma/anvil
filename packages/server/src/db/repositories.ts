@@ -1,4 +1,5 @@
 import { eq, and } from "drizzle-orm";
+import { encrypt, decrypt } from "../lib/crypto.js";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import {
   projects,
@@ -6,6 +7,7 @@ import {
   phases,
   phaseReports,
   conversations,
+  messages,
   settings,
 } from "./schema.js";
 
@@ -23,6 +25,8 @@ export type NewPhaseReport = typeof phaseReports.$inferInsert;
 export type PhaseReport = typeof phaseReports.$inferSelect;
 export type NewConversation = typeof conversations.$inferInsert;
 export type Conversation = typeof conversations.$inferSelect;
+export type NewMessage = typeof messages.$inferInsert;
+export type Message = typeof messages.$inferSelect;
 
 // ─── Projects ────────────────────────────────────────────────────────────────
 
@@ -239,6 +243,24 @@ export function listAllConversations(db: DB, projectId: string): Conversation[] 
     .sort((a, b) => a.stage - b.stage || a.sessionIndex - b.sessionIndex);
 }
 
+// ─── Messages ────────────────────────────────────────────────────────────────
+
+export function addMessage(db: DB, data: NewMessage): Message {
+  const rows = db.insert(messages).values(data).returning().all();
+  const row = rows[0];
+  if (!row) throw new Error("Failed to insert message");
+  return row;
+}
+
+export function listMessages(db: DB, conversationId: string): Message[] {
+  return db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .all()
+    .sort((a, b) => a.timestamp - b.timestamp);
+}
+
 // ─── Settings ────────────────────────────────────────────────────────────────
 
 export function getSetting(db: DB, key: string): string | undefined {
@@ -261,10 +283,11 @@ export interface LLMConfig {
 }
 
 export function getLLMConfig(db: DB): LLMConfig {
+  const rawKey = getSetting(db, "llm_api_key");
   return {
     provider: getSetting(db, "llm_provider") as LLMConfig["provider"],
     baseUrl: getSetting(db, "llm_base_url"),
-    apiKey: getSetting(db, "llm_api_key"),
+    apiKey: rawKey ? decrypt(rawKey) : undefined,
     model: getSetting(db, "llm_model"),
   };
 }
@@ -280,6 +303,6 @@ export function setLLMConfig(
   upsertSetting(db, "llm_base_url", config.baseUrl);
   upsertSetting(db, "llm_model", config.model);
   if (config.apiKey.length > 0) {
-    upsertSetting(db, "llm_api_key", config.apiKey);
+    upsertSetting(db, "llm_api_key", encrypt(config.apiKey));
   }
 }

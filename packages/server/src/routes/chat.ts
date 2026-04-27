@@ -6,6 +6,8 @@ import {
   updateConversation,
   getConversation,
   listConversations,
+  addMessage,
+  listMessages,
 } from "../db/repositories.js";
 import { getAdapter } from "../llm/index.js";
 import { assembleContext, type StageNumber } from "../llm/context-engine.js";
@@ -16,19 +18,12 @@ declare module "fastify" {
   }
 }
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  timestamp: number;
-}
-
 export async function chatRoutes(server: FastifyInstance): Promise<void> {
   const db = server.db;
 
   /**
    * POST /api/chat/start
    * Creates a new conversation session for a project + stage.
-   * Returns the conversation ID to use for subsequent messages.
    */
   server.post<{
     Body: { projectId: string; stage: number };
@@ -58,7 +53,7 @@ export async function chatRoutes(server: FastifyInstance): Promise<void> {
         id: randomUUID(),
         projectId,
         stage,
-        messages: "[]",
+        messages: "[]", // deprecated column — kept for schema compat
         title: "",
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -85,7 +80,7 @@ export async function chatRoutes(server: FastifyInstance): Promise<void> {
         id: s.id,
         sessionIndex: s.sessionIndex,
         title: s.title,
-        messageCount: (JSON.parse(s.messages || "[]") as unknown[]).length,
+        messageCount: listMessages(db, s.id).length,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
       }))
@@ -103,9 +98,14 @@ export async function chatRoutes(server: FastifyInstance): Promise<void> {
     if (!conversation) {
       return reply.status(404).send({ error: "Conversation not found" });
     }
+    const msgs = listMessages(db, conversation.id);
     return reply.send({
       ...conversation,
-      messages: JSON.parse(conversation.messages || "[]"),
+      messages: msgs.map((m) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+      })),
     });
   });
 
@@ -143,18 +143,19 @@ export async function chatRoutes(server: FastifyInstance): Promise<void> {
         return reply.status(404).send({ error: "Conversation not found" });
       }
 
-      // Load existing messages
-      const messages = JSON.parse(
-        conversation.messages || "[]"
-      ) as ChatMessage[];
-
-      // Append the new user message
-      const userMessage: ChatMessage = {
+      // Persist user message immediately
+      const now = Date.now();
+      addMessage(db, {
+        id: randomUUID(),
+        conversationId,
         role: "user",
         content: message,
-        timestamp: Date.now(),
-      };
-      messages.push(userMessage);
+        timestamp: now,
+        createdAt: new Date(),
+      });
+
+      // Load all messages for context assembly
+      const allMessages = listMessages(db, conversationId);
 
       // Assemble context
       let context;
@@ -190,8 +191,8 @@ export async function chatRoutes(server: FastifyInstance): Promise<void> {
       let assistantContent = "";
 
       try {
-        const llmMessages = messages.map((m) => ({
-          role: m.role,
+        const llmMessages = allMessages.map((m) => ({
+          role: m.role as "user" | "assistant",
           content: m.content,
         }));
 
@@ -218,23 +219,22 @@ export async function chatRoutes(server: FastifyInstance): Promise<void> {
         return;
       }
 
-      // Append assistant message and persist
-      const assistantMessage: ChatMessage = {
+      // Persist assistant message
+      addMessage(db, {
+        id: randomUUID(),
+        conversationId,
         role: "assistant",
         content: assistantContent,
         timestamp: Date.now(),
-      };
-      messages.push(assistantMessage);
+        createdAt: new Date(),
+      });
 
       // Auto-generate title from first user message if not set
       const title =
         conversation.title ||
         message.slice(0, 60) + (message.length > 60 ? "…" : "");
 
-      updateConversation(db, conversationId, {
-        messages: JSON.stringify(messages),
-        title,
-      });
+      updateConversation(db, conversationId, { title });
 
       reply.raw.write(
         `data: ${JSON.stringify({ type: "done", conversationId })}\n\n`

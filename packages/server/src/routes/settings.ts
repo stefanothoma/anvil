@@ -5,7 +5,9 @@ import { db } from "../db/client.js";
 const ANTHROPIC_MODELS = [
   "claude-opus-4-5",
   "claude-sonnet-4-5",
-  "claude-haiku-4-5",
+  "claude-haiku-4-5-20251001",
+  "claude-opus-4",
+  "claude-sonnet-4",
 ];
 
 const OPENAI_MODELS = [
