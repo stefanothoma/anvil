@@ -188,7 +188,15 @@ export function ProjectDetail() {
         >
           ← Projects
         </Link>
-        <h1 className="text-2xl font-bold text-white mt-4 mb-1">{project.name}</h1>
+        <div className="flex items-start justify-between mt-4 mb-1">
+          <h1 className="text-2xl font-bold text-white">{project.name}</h1>
+          <Link
+            to={`/projects/${id}/chat`}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-md transition-colors shrink-0 ml-4"
+          >
+            Open Chat
+          </Link>
+        </div>
         <p className="text-gray-400 text-sm">{project.description}</p>
       </div>
 
