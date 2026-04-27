@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { getLLMConfig, setLLMConfig } from "../db/repositories.js";
+import { db } from "../db/client.js";
 
 const ANTHROPIC_MODELS = [
   "claude-opus-4-5",
@@ -25,8 +26,6 @@ const DEFAULT_BASE_URLS: Record<string, string> = {
 };
 
 export async function settingsRoutes(server: FastifyInstance): Promise<void> {
-  const db = server.db;
-
   /** GET /api/settings — returns config with masked key */
   server.get("/", async (_req, reply) => {
     const config = getLLMConfig(db);

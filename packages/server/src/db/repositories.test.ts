@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema.js";
@@ -13,10 +13,12 @@ import {
   listPhases,
   getActivePhase,
   updatePhase,
-  upsertConversation,
+  createConversation,
+  updateConversation,
   getConversation,
+  listConversations,
   getSetting,
-  setSetting,
+  upsertSetting,
   type DB,
 } from "./repositories.js";
 
@@ -27,7 +29,9 @@ const SCHEMA_SQL = `
     id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL,
     developer_name TEXT NOT NULL, developer_context TEXT NOT NULL DEFAULT '',
     stack TEXT NOT NULL DEFAULT '', stage INTEGER NOT NULL DEFAULT 1,
-    repo_url TEXT NOT NULL DEFAULT '', test_command TEXT NOT NULL DEFAULT 'npm test',
+    repo_url TEXT NOT NULL DEFAULT '', repo_path TEXT NOT NULL DEFAULT '',
+    deployment_target TEXT NOT NULL DEFAULT 'not_decided',
+    test_command TEXT NOT NULL DEFAULT 'npm test',
     architecture TEXT NOT NULL DEFAULT '', current_state TEXT NOT NULL DEFAULT '',
     environment TEXT NOT NULL DEFAULT '', constraints TEXT NOT NULL DEFAULT '[]',
     code_standards TEXT NOT NULL DEFAULT '',
@@ -53,9 +57,14 @@ const SCHEMA_SQL = `
     created_at INTEGER NOT NULL
   );
   CREATE TABLE IF NOT EXISTS conversations (
-    id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id),
-    stage INTEGER NOT NULL, messages TEXT NOT NULL DEFAULT '[]',
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id),
+    stage INTEGER NOT NULL,
+    session_index INTEGER NOT NULL DEFAULT 0,
+    title TEXT NOT NULL DEFAULT '',
+    messages TEXT NOT NULL DEFAULT '[]',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
   );
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL
@@ -231,10 +240,10 @@ describe("phases", () => {
 // ─── Conversations ────────────────────────────────────────────────────────────
 
 describe("conversations", () => {
-  it("creates and retrieves a conversation", () => {
+  it("creates a conversation with sessionIndex 0", () => {
     const db = makeTestDb();
     createProject(db, testProject);
-    upsertConversation(db, {
+    const conv = createConversation(db, {
       id: "conv-1",
       projectId: "proj-1",
       stage: 1,
@@ -242,23 +251,59 @@ describe("conversations", () => {
       createdAt: now,
       updatedAt: now,
     });
-    expect(getConversation(db, "proj-1", 1)?.stage).toBe(1);
+    expect(conv.sessionIndex).toBe(0);
+    expect(conv.stage).toBe(1);
   });
 
-  it("upserts conversation messages", () => {
+  it("auto-increments sessionIndex for subsequent sessions", () => {
     const db = makeTestDb();
     createProject(db, testProject);
-    const base = {
+    createConversation(db, {
       id: "conv-1",
       projectId: "proj-1",
       stage: 1,
       messages: "[]",
       createdAt: now,
       updatedAt: now,
-    };
-    upsertConversation(db, base);
-    upsertConversation(db, { ...base, messages: '[{"role":"user","content":"hi"}]' });
-    expect(getConversation(db, "proj-1", 1)?.messages).toContain("hi");
+    });
+    const conv2 = createConversation(db, {
+      id: "conv-2",
+      projectId: "proj-1",
+      stage: 1,
+      messages: "[]",
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(conv2.sessionIndex).toBe(1);
+  });
+
+  it("updates conversation messages", () => {
+    const db = makeTestDb();
+    createProject(db, testProject);
+    const conv = createConversation(db, {
+      id: "conv-1",
+      projectId: "proj-1",
+      stage: 1,
+      messages: "[]",
+      createdAt: now,
+      updatedAt: now,
+    });
+    updateConversation(db, conv.id, {
+      messages: '[{"role":"user","content":"hi"}]',
+    });
+    const updated = getConversation(db, conv.id);
+    expect(updated?.messages).toContain("hi");
+  });
+
+  it("lists conversations ordered by sessionIndex", () => {
+    const db = makeTestDb();
+    createProject(db, testProject);
+    createConversation(db, { id: "conv-1", projectId: "proj-1", stage: 1, messages: "[]", createdAt: now, updatedAt: now });
+    createConversation(db, { id: "conv-2", projectId: "proj-1", stage: 1, messages: "[]", createdAt: now, updatedAt: now });
+    const list = listConversations(db, "proj-1", 1);
+    expect(list).toHaveLength(2);
+    expect(list[0]!.sessionIndex).toBe(0);
+    expect(list[1]!.sessionIndex).toBe(1);
   });
 });
 
@@ -267,7 +312,7 @@ describe("conversations", () => {
 describe("settings", () => {
   it("sets and gets a setting", () => {
     const db = makeTestDb();
-    setSetting(db, "llm_provider", "anthropic");
+    upsertSetting(db, "llm_provider", "anthropic");
     expect(getSetting(db, "llm_provider")).toBe("anthropic");
   });
 
@@ -278,8 +323,8 @@ describe("settings", () => {
 
   it("overwrites an existing setting", () => {
     const db = makeTestDb();
-    setSetting(db, "llm_provider", "anthropic");
-    setSetting(db, "llm_provider", "openai");
+    upsertSetting(db, "llm_provider", "anthropic");
+    upsertSetting(db, "llm_provider", "openai");
     expect(getSetting(db, "llm_provider")).toBe("openai");
   });
 });
