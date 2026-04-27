@@ -5,6 +5,7 @@ import { db } from "./db/client.js";
 import { projectRoutes } from "./routes/projects.js";
 import { documentRoutes } from "./routes/documents.js";
 import { phaseRoutes } from "./routes/phases.js";
+import { settingsRoutes } from "./routes/settings.js";
 
 runMigrations();
 
@@ -21,6 +22,7 @@ server.decorate("db", db);
 await server.register(projectRoutes, { prefix: "/api/projects" });
 await server.register(documentRoutes, { prefix: "/api/documents" });
 await server.register(phaseRoutes, { prefix: "/api/phases" });
+await server.register(settingsRoutes, { prefix: "/api/settings" });
 
 // Health check
 server.get("/api/health", async () => {

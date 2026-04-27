@@ -8,8 +8,11 @@ async function request<T>(
   options?: RequestInit
 ): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      ...(options?.body ? { "Content-Type": "application/json" } : {}),
+      ...options?.headers,
+    },
   });
 
   if (!response.ok) {
@@ -138,4 +141,34 @@ export const phases = {
 export const health = {
   check: (): Promise<{ status: string; timestamp: string }> =>
     request("/health"),
+};
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+export interface LLMSettings {
+  provider: "anthropic" | "openai" | "custom" | null;
+  baseUrl: string | null;
+  model: string | null;
+  hasKey: boolean;
+  knownModels: { anthropic: string[]; openai: string[] };
+  defaultBaseUrls: Record<string, string>;
+}
+
+export const settings = {
+  get: (): Promise<LLMSettings> =>
+    request<LLMSettings>("/settings"),
+
+  save: (data: {
+    provider: string;
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+  }): Promise<Omit<LLMSettings, "knownModels" | "defaultBaseUrls">> =>
+    request("/settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  validate: (): Promise<{ valid: boolean }> =>
+    request("/settings/validate", { method: "POST" }),
 };

@@ -67,7 +67,9 @@ export const conversations = sqliteTable("conversations", {
   id: text("id").primaryKey(),
   projectId: text("project_id").notNull().references(() => projects.id),
   stage: integer("stage").notNull(),
-  messages: text("messages").notNull().default("[]"), // JSON array
+  sessionIndex: integer("session_index").notNull().default(0),
+  title: text("title").notNull().default(""),
+  messages: text("messages").notNull().default("[]"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });

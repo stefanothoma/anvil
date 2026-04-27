@@ -86,6 +86,10 @@ export function runMigrations(): void {
   try { sqlite.exec(`ALTER TABLE projects ADD COLUMN repo_path TEXT NOT NULL DEFAULT ''`); } catch {}
   try { sqlite.exec(`ALTER TABLE projects ADD COLUMN deployment_target TEXT NOT NULL DEFAULT 'not_decided'`); } catch {}
 
+  // Phase 3 additions — multi-session conversation model
+  try { sqlite.exec(`ALTER TABLE conversations ADD COLUMN session_index INTEGER NOT NULL DEFAULT 0`); } catch {}
+  try { sqlite.exec(`ALTER TABLE conversations ADD COLUMN title TEXT NOT NULL DEFAULT ''`); } catch {}
+
   sqlite.close();
   console.info("Database migrations complete.");
 }

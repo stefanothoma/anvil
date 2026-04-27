@@ -3,6 +3,7 @@ import { Shell } from "./components/Shell.tsx";
 import { Dashboard } from "./pages/Dashboard.tsx";
 import { NewProject } from "./pages/NewProject.tsx";
 import { ProjectDetail } from "./pages/ProjectDetail.tsx";
+import { Settings } from "./pages/Settings.tsx";
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
         <Route path="/projects" element={<Dashboard />} />
         <Route path="/projects/new" element={<NewProject />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </Shell>
   );
