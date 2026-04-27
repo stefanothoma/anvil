@@ -1,5 +1,4 @@
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
+import { LocalFileSystemProvider, type FileSystemProvider } from "../lib/fs-provider.js";
 import type { DB } from "../db/repositories.js";
 import {
   getProject,
@@ -37,8 +36,13 @@ export interface AssembledContext {
   stageName: string;
 }
 
-function scanExistingContextFiles(repoPath: string): string {
+function scanExistingContextFiles(
+  repoPath: string,
+  fsProvider?: FileSystemProvider
+): string {
   if (!repoPath) return "";
+
+  const provider = fsProvider ?? new LocalFileSystemProvider(repoPath);
 
   const candidates = [
     { file: "CLAUDE.md", label: "CLAUDE.md" },
@@ -50,16 +54,15 @@ function scanExistingContextFiles(repoPath: string): string {
   const found: string[] = [];
 
   for (const { file, label } of candidates) {
-    const fullPath = join(repoPath, file);
     try {
-      if (existsSync(fullPath)) {
-        const content = readFileSync(fullPath, "utf-8").trim();
+      if (provider.exists(file)) {
+        const content = provider.readFile(file).trim();
         if (content) {
           found.push(`### ${label}\n${content}`);
         }
       }
     } catch {
-      // unreadable file — skip silently
+      // unreadable — skip silently
     }
   }
 
