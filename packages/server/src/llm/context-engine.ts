@@ -1,3 +1,5 @@
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 import type { DB } from "../db/repositories.js";
 import {
   getProject,
@@ -34,6 +36,37 @@ export interface AssembledContext {
   stageName: string;
 }
 
+function scanExistingContextFiles(repoPath: string): string {
+  if (!repoPath) return "";
+
+  const candidates = [
+    { file: "CLAUDE.md", label: "CLAUDE.md" },
+    { file: "AGENTS.md", label: "AGENTS.md" },
+    { file: ".cursorrules", label: ".cursorrules" },
+    { file: ".github/copilot-instructions.md", label: "copilot-instructions.md" },
+  ];
+
+  const found: string[] = [];
+
+  for (const { file, label } of candidates) {
+    const fullPath = join(repoPath, file);
+    try {
+      if (existsSync(fullPath)) {
+        const content = readFileSync(fullPath, "utf-8").trim();
+        if (content) {
+          found.push(`### ${label}\n${content}`);
+        }
+      }
+    } catch {
+      // unreadable file — skip silently
+    }
+  }
+
+  if (found.length === 0) return "";
+
+  return `## Existing Context Files (from repo)\nThe developer has existing context files in their repository. Treat these as established conventions for this project.\n\n${found.join("\n\n")}`;
+}
+
 /**
  * Assembles the full system prompt for a given project + stage.
  * Called before every LLM interaction.
@@ -49,7 +82,6 @@ export async function assembleContext(
 
   const activePhase = getActivePhase(db, projectId);
   const masterDoc = getDocument(db, projectId, "master_doc");
-  const sessionInstructions = getDocument(db, projectId, "session_instructions");
 
   // Load prior sessions for this stage (excluding the current one)
   const priorSessions = listConversations(db, projectId, stage).filter(
@@ -57,6 +89,7 @@ export async function assembleContext(
   );
 
   const constraints = JSON.parse(project.constraints || "[]") as string[];
+  const existingContextBlock = scanExistingContextFiles(project.repoPath);
 
   // ── Base project block ────────────────────────────────────────────────────
   const projectBlock = `
@@ -126,6 +159,7 @@ ${masterDoc.content.slice(0, 3000)}${masterDoc.content.length > 3000 ? "\n\n[…
   const systemPrompt = [
     getCoreIdentity(),
     projectBlock,
+    existingContextBlock,
     activePhase ? phaseBlock : "",
     priorSessionsBlock,
     masterDocBlock,
