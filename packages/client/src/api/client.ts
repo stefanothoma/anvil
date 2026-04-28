@@ -48,6 +48,15 @@ export interface Phase {
   updatedAt: number;
 }
 
+export interface PhaseReport {
+  id: string;
+  phaseId: string;
+  projectId: string;
+  verdict: "GO" | "NO-GO" | "CONDITIONAL";
+  report: string; // JSON string
+  createdAt: number;
+}
+
 export interface LLMSettings {
   provider: "anthropic" | "openai" | "custom" | null;
   baseUrl: string | null;
@@ -138,6 +147,17 @@ export function useApiClient() {
       update: (projectId: string, id: string, data: Partial<Phase>) =>
         request<Phase>(`/phases/${projectId}/${id}`, {
           method: "PATCH",
+          body: JSON.stringify(data),
+        }),
+      listReports: (projectId: string, phaseId: string) =>
+        request<PhaseReport[]>(`/phases/${projectId}/${phaseId}/reports`),
+      createReport: (
+        projectId: string,
+        phaseId: string,
+        data: { verdict: "GO" | "NO-GO" | "CONDITIONAL"; report: Record<string, unknown> }
+      ) =>
+        request<PhaseReport>(`/phases/${projectId}/${phaseId}/reports`, {
+          method: "POST",
           body: JSON.stringify(data),
         }),
     },

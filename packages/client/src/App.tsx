@@ -6,6 +6,7 @@ import { NewProject } from "./pages/NewProject.tsx";
 import { ProjectDetail } from "./pages/ProjectDetail.tsx";
 import { ProjectChat } from "./pages/ProjectChat.tsx";
 import { Settings } from "./pages/Settings.tsx";
+import { ProjectPhases } from "./pages/ProjectPhases.tsx";
 
 function ProtectedApp() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -30,6 +31,7 @@ function ProtectedApp() {
         <Route path="/projects/new" element={<NewProject />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
         <Route path="/projects/:id/chat" element={<ProjectChat />} />
+        <Route path="/projects/:id/phases" element={<ProjectPhases />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </Shell>
