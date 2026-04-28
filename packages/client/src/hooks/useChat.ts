@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { useAuth } from "@clerk/react";
 
 export interface Message {
   role: "user" | "assistant";
@@ -14,9 +15,10 @@ export interface UseChatReturn {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 }
 
-const BASE_URL = "http://localhost:3000/api";
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
 
 export function useChat(): UseChatReturn {
+  const { getToken } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +29,6 @@ export function useChat(): UseChatReturn {
       setError(null);
       setIsStreaming(true);
 
-      // Optimistically add user message
       const userMessage: Message = {
         role: "user",
         content: text,
@@ -35,7 +36,6 @@ export function useChat(): UseChatReturn {
       };
       setMessages((prev) => [...prev, userMessage]);
 
-      // Placeholder for streaming assistant message
       const assistantPlaceholder: Message = {
         role: "assistant",
         content: "",
@@ -44,16 +44,18 @@ export function useChat(): UseChatReturn {
       setMessages((prev) => [...prev, assistantPlaceholder]);
 
       let cancelled = false;
-      abortRef.current = () => {
-        cancelled = true;
-      };
+      abortRef.current = () => { cancelled = true; };
 
       try {
+        const token = await getToken();
         const response = await fetch(
           `${BASE_URL}/chat/${conversationId}/message`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             body: JSON.stringify({ message: text }),
           }
         );
@@ -70,7 +72,6 @@ export function useChat(): UseChatReturn {
         while (true) {
           const { done, value } = await reader.read();
           if (done || cancelled) break;
-
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
           buffer = lines.pop() ?? "";
@@ -78,14 +79,12 @@ export function useChat(): UseChatReturn {
           for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
             const data = line.slice(6).trim();
-
             try {
               const event = JSON.parse(data) as {
                 type: string;
                 content?: string;
                 error?: string;
               };
-
               if (event.type === "delta" && event.content) {
                 setMessages((prev) => {
                   const updated = [...prev];
@@ -109,7 +108,6 @@ export function useChat(): UseChatReturn {
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         setError(msg);
-        // Remove the empty assistant placeholder on error
         setMessages((prev) =>
           prev.filter((m) => !(m.role === "assistant" && m.content === ""))
         );
@@ -117,7 +115,7 @@ export function useChat(): UseChatReturn {
         setIsStreaming(false);
       }
     },
-    []
+    [getToken]
   );
 
   return { messages, isStreaming, error, sendMessage, setMessages };

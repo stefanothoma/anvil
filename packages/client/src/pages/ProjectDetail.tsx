@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { projects as projectsApi, documents as documentsApi } from "../api/client.ts";
-import type { Project, Document } from "../api/client.ts";
+import { useApiClient, type Project, type Document } from "../api/client.ts";
 
 // ─── Document tab config ──────────────────────────────────────────────────────
 
@@ -143,6 +142,7 @@ function DocumentViewer({
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
+  const api = useApiClient();
   const [project, setProject] = useState<Project | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,7 +150,7 @@ export function ProjectDetail() {
 
   useEffect(() => {
     if (!id) return;
-    Promise.all([projectsApi.get(id), documentsApi.list(id)])
+    Promise.all([api.projects.get(id), api.documents.list(id)])
       .then(([proj, docs]) => {
         setProject(proj);
         setDocuments(docs);

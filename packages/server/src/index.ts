@@ -1,5 +1,7 @@
+import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import { clerkPlugin, getAuth } from "@clerk/fastify";
 import { runMigrations } from "./db/migrate.js";
 import { db } from "./db/client.js";
 import { projectRoutes } from "./routes/projects.js";
@@ -13,11 +15,25 @@ runMigrations();
 const server = Fastify({ logger: true });
 
 await server.register(cors, {
-  origin: "http://localhost:5173",
+  origin: process.env.CLIENT_URL ?? ["http://localhost:5173", "http://localhost:5174"],
+  credentials: true,
 });
+
+await server.register(clerkPlugin);
 
 // Decorate server with db instance so routes can access it
 server.decorate("db", db);
+
+// Auth middleware — protects all /api/* routes except /api/health
+server.addHook("preHandler", async (request, reply) => {
+  // Skip auth for health check
+  if (request.url === "/api/health") return;
+
+  const { userId } = getAuth(request);
+  if (!userId) {
+    return reply.status(401).send({ error: "Unauthorized" });
+  }
+});
 
 // Routes
 await server.register(projectRoutes, { prefix: "/api/projects" });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { projects } from "../api/client.ts";
+import { useApiClient } from "../api/client.ts";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -483,6 +483,7 @@ function isStepValid(step: number, data: WizardData): boolean {
 
 export function NewProject() {
   const navigate = useNavigate();
+  const api = useApiClient();
   const [mode, setMode] = useState<EntryMode>(null);
   const [step, setStep] = useState(1);
   const [data, setData] = useState<WizardData>(INITIAL);
@@ -505,7 +506,7 @@ export function NewProject() {
     setSubmitting(true);
     setError(null);
     try {
-      const project = await projects.create({
+      const project = await api.projects.create({
         name: data.name,
         description: data.description,
         developerName: data.developerName,
@@ -522,7 +523,7 @@ export function NewProject() {
         codeStandards: "",
         stage: 1,
         phases: data.phases,
-      } as Parameters<typeof projects.create>[0]);
+      } as Parameters<ReturnType<typeof useApiClient>["projects"]["create"]>[0]);
       navigate(`/projects/${project.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create project");

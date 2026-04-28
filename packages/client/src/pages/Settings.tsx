@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { settings, type LLMSettings } from "../api/client.ts";
+import { useApiClient, type LLMSettings } from "../api/client.ts";
 
 const PROVIDER_LABELS: Record<string, string> = {
   anthropic: "Anthropic",
@@ -8,6 +8,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 export function Settings() {
+  const api = useApiClient();
   const [config, setConfig] = useState<LLMSettings | null>(null);
   const [provider, setProvider] = useState("anthropic");
   const [baseUrl, setBaseUrl] = useState("");
@@ -22,7 +23,7 @@ export function Settings() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    settings.get().then((data) => {
+    api.settings.get().then((data) => {
       setConfig(data);
       if (data.provider) setProvider(data.provider);
       if (data.baseUrl) setBaseUrl(data.baseUrl);
@@ -58,7 +59,7 @@ export function Settings() {
     setSaveStatus("idle");
     setErrorMsg("");
     try {
-      await settings.save({ provider, baseUrl, apiKey, model: effectiveModel });
+      await api.settings.save({ provider, baseUrl, apiKey, model: effectiveModel });
       setSaveStatus("saved");
       setApiKey(""); // clear after save — key is now stored server-side
       setTimeout(() => setSaveStatus("idle"), 3000);
@@ -76,9 +77,9 @@ export function Settings() {
     setValidateStatus("idle");
     setErrorMsg("");
     try {
-      await settings.save({ provider, baseUrl, apiKey, model: effectiveModel });
+      await api.settings.save({ provider, baseUrl, apiKey, model: effectiveModel });
       setApiKey("");
-      const result = await settings.validate();
+      const result = await api.settings.validate();
       setValidateStatus(result.valid ? "valid" : "invalid");
     } catch (err) {
       setValidateStatus("invalid");

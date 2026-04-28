@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { projects as projectsApi } from "../api/client.ts";
+import { useApiClient } from "../api/client.ts";
 import type { Project } from "../api/client.ts";
-
-// ─── Empty state ──────────────────────────────────────────────────────────────
 
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center h-96 text-center">
-      <div className="text-4xl mb-4">⬡</div>
+      <div className="text-4xl mb-4">🔨</div>
       <h2 className="text-lg font-semibold text-white mb-2">No projects yet</h2>
       <p className="text-sm text-gray-500 mb-6 max-w-sm">
         Start by describing an idea or filling in your project details manually.
@@ -22,8 +20,6 @@ function EmptyState() {
     </div>
   );
 }
-
-// ─── Project card ─────────────────────────────────────────────────────────────
 
 function ProjectCard({ project }: { project: Project }) {
   const updatedAt = new Date(project.updatedAt).toLocaleDateString("en-US", {
@@ -48,7 +44,6 @@ function ProjectCard({ project }: { project: Project }) {
           →
         </span>
       </div>
-
       <div className="flex items-center gap-3 mt-4">
         <span className="text-xs bg-gray-800 text-gray-500 px-2 py-0.5 rounded-full">
           Stage {project.stage}
@@ -58,27 +53,25 @@ function ProjectCard({ project }: { project: Project }) {
             {project.stack}
           </span>
         )}
-        <span className="text-xs text-gray-700 ml-auto shrink-0">
-          {updatedAt}
-        </span>
+        <span className="text-xs text-gray-700 ml-auto shrink-0">{updatedAt}</span>
       </div>
     </Link>
   );
 }
 
-// ─── Dashboard ────────────────────────────────────────────────────────────────
-
 export function Dashboard() {
+  const api = useApiClient();
   const [projectList, setProjectList] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    projectsApi
+    api.projects
       .list()
       .then(setProjectList)
-      .catch((err) => setError(err.message))
+      .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
@@ -99,7 +92,6 @@ export function Dashboard() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Projects</h1>
@@ -116,8 +108,6 @@ export function Dashboard() {
           + New Project
         </Link>
       </div>
-
-      {/* Project list */}
       {projectList.length === 0 ? (
         <EmptyState />
       ) : (
